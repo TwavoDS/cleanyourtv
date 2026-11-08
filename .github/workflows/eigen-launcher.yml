@@ -36,7 +36,12 @@ jobs:
         working-directory: launcher
         run: |
           chmod +x gradlew
-          ./gradlew --no-daemon assembleRelease
+          # De Gradle-download faalt soms tijdelijk (timeout/504): tot drie pogingen.
+          for i in 1 2 3; do
+            ./gradlew --no-daemon assembleRelease && exit 0
+            echo "Poging $i mislukt, opnieuw over 60 s"; sleep 60
+          done
+          exit 1
       - name: Release publiceren
         env:
           GH_TOKEN: ${{ github.token }}
