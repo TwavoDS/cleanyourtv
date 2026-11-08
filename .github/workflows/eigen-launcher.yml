@@ -21,6 +21,9 @@ jobs:
         with:
           packages: platforms;android-34 build-tools;34.0.0
       - uses: gradle/actions/setup-gradle@748248ddd2a24f49513d8f472f81c3a07d4d50e1 # v4.4.4
+        with:
+          # Ook op deze branch Gradle bewaren, zodat een volgende build niets hoeft te downloaden.
+          cache-read-only: false
       # Altijd dezelfde ondertekensleutel, zodat een nieuwe build over de vorige heen installeert.
       - name: Vaste ondertekensleutel
         env:
@@ -38,10 +41,10 @@ jobs:
         working-directory: launcher
         run: |
           chmod +x gradlew
-          # De Gradle-download faalt soms tijdelijk (timeout/504): tot drie pogingen.
-          for i in 1 2 3; do
+          # De Gradle-download faalt soms tijdelijk (timeout/504): tot zes pogingen.
+          for i in 1 2 3 4 5 6; do
             ./gradlew --no-daemon assembleRelease $SIGN_ARGS && exit 0
-            echo "Poging $i mislukt, opnieuw over 60 s"; sleep 60
+            echo "Poging $i mislukt, opnieuw over 90 s"; sleep 90
           done
           exit 1
       - name: Release publiceren
