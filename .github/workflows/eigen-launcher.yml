@@ -31,14 +31,16 @@ jobs:
             exit 0
           fi
           mkdir -p ~/.android
-          echo "$KEYSTORE_B64" | base64 -d > ~/.android/debug.keystore
+          echo "$KEYSTORE_B64" | tr -d ' \r\n' | base64 -d > "$RUNNER_TEMP/eigen.keystore"
+          keytool -list -v -keystore "$RUNNER_TEMP/eigen.keystore" -storepass android | grep "SHA256:"
+          echo "SIGN_ARGS=-Pandroid.injected.signing.store.file=$RUNNER_TEMP/eigen.keystore -Pandroid.injected.signing.store.password=android -Pandroid.injected.signing.key.alias=androiddebugkey -Pandroid.injected.signing.key.password=android" >> "$GITHUB_ENV"
       - name: Bouwen
         working-directory: launcher
         run: |
           chmod +x gradlew
           # De Gradle-download faalt soms tijdelijk (timeout/504): tot drie pogingen.
           for i in 1 2 3; do
-            ./gradlew --no-daemon assembleRelease && exit 0
+            ./gradlew --no-daemon assembleRelease $SIGN_ARGS && exit 0
             echo "Poging $i mislukt, opnieuw over 60 s"; sleep 60
           done
           exit 1
@@ -48,6 +50,7 @@ jobs:
         run: |
           tag="eigen-${GITHUB_RUN_NUMBER}"
           cp launcher/app/build/outputs/apk/release/app-release.apk CleanYourTV-launcher-eigen-afbeeldingen.apk
+          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --print-certs CleanYourTV-launcher-eigen-afbeeldingen.apk | grep SHA-256
           gh release create "$tag" CleanYourTV-launcher-eigen-afbeeldingen.apk \
             --target "$GITHUB_SHA" --title "Launcher met eigen afbeeldingen ($tag)" \
             --notes "Clean Your TV-launcher met eigen afbeeldingen uit files/banners/<pakketnaam>.png"
