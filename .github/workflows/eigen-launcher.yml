@@ -26,7 +26,10 @@ jobs:
         env:
           KEYSTORE_B64: ${{ secrets.DEBUG_KEYSTORE_B64 }}
         run: |
-          test -n "$KEYSTORE_B64" || { echo "Secret DEBUG_KEYSTORE_B64 ontbreekt"; exit 1; }
+          if [ -z "$KEYSTORE_B64" ]; then
+            echo "::warning::Geen DEBUG_KEYSTORE_B64: elke build krijgt een andere handtekening."
+            exit 0
+          fi
           mkdir -p ~/.android
           echo "$KEYSTORE_B64" | base64 -d > ~/.android/debug.keystore
       - name: Bouwen
