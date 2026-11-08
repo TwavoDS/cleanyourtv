@@ -423,6 +423,15 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             if (appLibrary != null) appLibrary.refresh();
         }
     };
+    // Knop (be.toivo.knop) changed a tile picture: rebuild the tiles like after a package change.
+    static final String ACTION_BANNERS_CHANGED = "be.toivo.knop.BANNERS_CHANGED";
+    private final BroadcastReceiver bannersReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (!tileRefresh.onPackagesChanged()) return;
+            reloadApps(false);
+        }
+    };
     // Right after boot the clock is often wrong until network time arrives; don't wait a minute to catch up.
     private final IntentFilter timeFilter = new IntentFilter(Intent.ACTION_TIME_CHANGED);
     private final BroadcastReceiver timeReceiver = new BroadcastReceiver() {
@@ -947,6 +956,11 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         } else {
             registerReceiver(packageReceiver, packageFilter);
         }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(bannersReceiver, new IntentFilter(ACTION_BANNERS_CHANGED), Context.RECEIVER_EXPORTED);
+        } else {
+            registerReceiver(bannersReceiver, new IntentFilter(ACTION_BANNERS_CHANGED));
+        }
         if (openOnStartOnWake) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 registerReceiver(wakeReceiver, new IntentFilter(Intent.ACTION_SCREEN_ON), Context.RECEIVER_NOT_EXPORTED);
@@ -1380,6 +1394,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         cancelHoldOk();
         if (gameDay != null) gameDay.shutdown();
         unregisterReceiver(packageReceiver);
+        unregisterReceiver(bannersReceiver);
         if (openOnStartOnWake) unregisterReceiver(wakeReceiver);
         wallpaperPlayer.close();
         ConnectivityManager cm = getSystemService(ConnectivityManager.class);

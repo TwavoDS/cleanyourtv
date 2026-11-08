@@ -375,6 +375,14 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             Bitmap bm = android.graphics.BitmapFactory.decodeFile(f.getPath(), o);
             if (bm != null) return new android.graphics.drawable.BitmapDrawable(ctx.getResources(), bm);
         }
+        // A picture set from a phone through Knop's web page (be.toivo.knop), shared by its provider.
+        try (java.io.InputStream in = ctx.getContentResolver().openInputStream(
+                android.net.Uri.parse("content://be.toivo.knop.banners/" + pkg))) {
+            Bitmap bm = in != null ? android.graphics.BitmapFactory.decodeStream(in) : null;
+            if (bm != null) return new android.graphics.drawable.BitmapDrawable(ctx.getResources(), bm);
+        } catch (Exception ignored) {
+            // No Knop, or no picture for this app.
+        }
         return null;
     }
 
