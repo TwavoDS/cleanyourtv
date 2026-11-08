@@ -37,6 +37,20 @@ jobs:
           echo "$KEYSTORE_B64" | tr -d ' \r\n' | base64 -d > "$RUNNER_TEMP/eigen.keystore"
           keytool -list -v -keystore "$RUNNER_TEMP/eigen.keystore" -storepass android | grep "SHA256:"
           echo "SIGN_ARGS=-Pandroid.injected.signing.store.file=$RUNNER_TEMP/eigen.keystore -Pandroid.injected.signing.store.password=android -Pandroid.injected.signing.key.alias=androiddebugkey -Pandroid.injected.signing.key.password=android" >> "$GITHUB_ENV"
+      - name: Gradle 8.9 ophalen (met reservebron, gecontroleerd met de officiële checksum)
+        run: |
+          for i in 1 2 3 4 5; do
+            sum=$(curl -fsSL --max-time 30 https://services.gradle.org/distributions/gradle-8.9-bin.zip.sha256) || { sleep 20; continue; }
+            for url in https://services.gradle.org/distributions/gradle-8.9-bin.zip https://mirrors.cloud.tencent.com/gradle/gradle-8.9-bin.zip; do
+              curl -fsSL --max-time 300 -o "$RUNNER_TEMP/gradle.zip" "$url" || continue
+              if echo "$sum  $RUNNER_TEMP/gradle.zip" | sha256sum -c -; then
+                sed -i "s#^distributionUrl=.*#distributionUrl=file\\://$RUNNER_TEMP/gradle.zip#; s#^validateDistributionUrl=.*#validateDistributionUrl=false#" launcher/gradle/wrapper/gradle-wrapper.properties
+                exit 0
+              fi
+            done
+            sleep 20
+          done
+          exit 1
       - name: Bouwen
         working-directory: launcher
         run: |
