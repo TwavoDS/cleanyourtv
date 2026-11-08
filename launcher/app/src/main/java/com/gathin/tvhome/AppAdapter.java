@@ -296,9 +296,10 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             String label = card != null ? card.label : Cards.cleanLabel(
                     appLabels.containsKey(pkg) ? appLabels.get(pkg) : String.valueOf(ri.loadLabel(pm)), pkg);
             if (!seen.add(pkg + '\n' + label)) continue;
-            Drawable banner = null;
+            // Own picture first: files/banners/<package>.png (or .jpg/.jpeg/.webp) in the launcher's external files dir.
+            Drawable banner = card == null ? customBanner(pkg) : null;
             // uniform_tiles draws the icon, so an app's banner is never loaded. A module card keeps its banner.
-            if (!(uniformTiles && card == null)) {
+            if (banner == null && !(uniformTiles && card == null)) {
                 banner = bundledBanner(appBanners.get(pkg));
                 if (banner == null) banner = iconTiles.contains(pkg) ? iconBanner(ri.loadIcon(pm)) : loadBanner(pm, ri);
             }
@@ -354,6 +355,27 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
         icon.setBounds((w - side) / 2, (h - side) / 2, (w + side) / 2, (h + side) / 2);
         icon.draw(canvas);
         return new android.graphics.drawable.BitmapDrawable(ctx.getResources(), bmp);
+    }
+
+    /** A picture the owner put in files/banners/ for this package, scaled to tile size; null when there is none. */
+    private Drawable customBanner(String pkg) {
+        java.io.File dir = Config.dir(ctx);
+        if (dir == null) return null;
+        for (String ext : new String[]{".png", ".jpg", ".jpeg", ".webp"}) {
+            java.io.File f = new java.io.File(new java.io.File(dir, "banners"), pkg + ext);
+            if (!f.isFile()) continue;
+            android.graphics.BitmapFactory.Options o = new android.graphics.BitmapFactory.Options();
+            o.inJustDecodeBounds = true;
+            android.graphics.BitmapFactory.decodeFile(f.getPath(), o);
+            if (o.outWidth <= 0) continue;
+            int sample = 1;
+            while (o.outWidth / (sample * 2) >= 640) sample *= 2;
+            o = new android.graphics.BitmapFactory.Options();
+            o.inSampleSize = sample;
+            Bitmap bm = android.graphics.BitmapFactory.decodeFile(f.getPath(), o);
+            if (bm != null) return new android.graphics.drawable.BitmapDrawable(ctx.getResources(), bm);
+        }
+        return null;
     }
 
     /** A banner_* drawable bundled with the launcher, or null for none or a name that is not one. */
