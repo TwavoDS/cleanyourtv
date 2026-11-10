@@ -70,6 +70,41 @@ final class PinnedShortcuts {
         }
     }
 
+    /**
+     * Name of a shortcut's own picture (Knop's web page, or files/banners/): the package, "@", and 12 hex
+     * characters of the shortcut id's SHA-1. An id can hold any character; this key is always a safe file name.
+     */
+    static String imageKey(String pkg, String id) {
+        try {
+            byte[] d = java.security.MessageDigest.getInstance("SHA-1").digest(id.getBytes("UTF-8"));
+            StringBuilder sb = new StringBuilder(pkg).append('@');
+            for (int i = 0; i < 6; i++) sb.append(String.format(java.util.Locale.ROOT, "%02x", d[i] & 0xFF));
+            return sb.toString();
+        } catch (Exception e) {
+            return pkg;
+        }
+    }
+
+    private static String published;
+
+    /**
+     * Tells Knop (be.toivo.knop) which shortcuts are on Home, so its web page lists them for a picture.
+     * Only when the list changed; nothing happens without Knop.
+     */
+    static void publish(Context ctx, java.util.ArrayList<String> keys, java.util.ArrayList<String> labels) {
+        String sig = keys + "|" + labels;
+        if (sig.equals(published)) return;
+        try {
+            android.os.Bundle b = new android.os.Bundle();
+            b.putStringArrayList("keys", keys);
+            b.putStringArrayList("labels", labels);
+            ctx.getContentResolver().call(android.net.Uri.parse("content://be.toivo.knop.banners"), "shortcuts", null, b);
+            published = sig;
+        } catch (Exception ignored) {
+            // No Knop installed.
+        }
+    }
+
     /** The shortcut id behind a tile's component class, or null for an ordinary app tile. */
     static String idOf(String className) {
         return className != null && className.startsWith(PREFIX) ? className.substring(PREFIX.length()) : null;

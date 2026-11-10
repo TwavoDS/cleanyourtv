@@ -313,6 +313,7 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             }
         }
         // Shortcuts an app pinned to Home (a channel, a film, a web page): a tile each, with the shortcut's icon.
+        java.util.ArrayList<String> scKeys = new java.util.ArrayList<>(), scLabels = new java.util.ArrayList<>();
         for (android.content.pm.ShortcutInfo si : PinnedShortcuts.load(ctx)) {
             String pkg = si.getPackage();
             CharSequence sl = si.getShortLabel();
@@ -325,11 +326,17 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
             if (icon == null) {
                 try { icon = pm.getApplicationIcon(pkg); } catch (Exception ignored) { }
             }
-            Drawable banner = icon != null ? iconBanner(icon) : null;
+            // Own picture first (Knop's web page or files/banners/<key>.png), else the shortcut's icon.
+            String key = PinnedShortcuts.imageKey(pkg, si.getId());
+            scKeys.add(key);
+            scLabels.add(label);
+            Drawable banner = customBanner(key);
+            if (banner == null && icon != null) banner = iconBanner(icon);
             Entry e = new Entry(Entry.SHORTCUT, label, new ComponentName(pkg, PinnedShortcuts.PREFIX + si.getId()),
                     banner, null, null, 0);
             fresh.add(e);
         }
+        PinnedShortcuts.publish(ctx, scKeys, scLabels);
         Collections.sort(fresh, (a, b) -> {
             // The owner's own order first; tiles it does not know (new installs) follow by the rule below.
             int saved = Order.compare(savedRanks, a.component.flattenToShortString(), b.component.flattenToShortString());
