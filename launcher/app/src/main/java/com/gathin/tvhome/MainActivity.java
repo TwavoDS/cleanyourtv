@@ -432,6 +432,12 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             reloadApps(false);
         }
     };
+    /** Knop's picture changes, and shortcuts pinned or removed (ConfirmPinActivity, the tile menu). */
+    private static IntentFilter bannersFilter() {
+        IntentFilter f = new IntentFilter(ACTION_BANNERS_CHANGED);
+        f.addAction(PinnedShortcuts.ACTION_CHANGED);
+        return f;
+    }
     // Right after boot the clock is often wrong until network time arrives; don't wait a minute to catch up.
     private final IntentFilter timeFilter = new IntentFilter(Intent.ACTION_TIME_CHANGED);
     private final BroadcastReceiver timeReceiver = new BroadcastReceiver() {
@@ -957,9 +963,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             registerReceiver(packageReceiver, packageFilter);
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(bannersReceiver, new IntentFilter(ACTION_BANNERS_CHANGED), Context.RECEIVER_EXPORTED);
+            registerReceiver(bannersReceiver, bannersFilter(), Context.RECEIVER_EXPORTED);
         } else {
-            registerReceiver(bannersReceiver, new IntentFilter(ACTION_BANNERS_CHANGED));
+            registerReceiver(bannersReceiver, bannersFilter());
         }
         if (openOnStartOnWake) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -3858,7 +3864,12 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             pickUp(at);
             Toast.makeText(this, R.string.reorder_hint, Toast.LENGTH_LONG).show();
         });
-        if (appLibraryEnabled) addSettingsMenuRow(rows, popup, R.string.library_remove_shortcut, () -> {
+        String shortcutId = adapter.shortcutIdAt(position);
+        if (shortcutId != null) addSettingsMenuRow(rows, popup, R.string.library_remove_shortcut, () -> {
+            if (PinnedShortcuts.remove(this, pkg, shortcutId)) reloadApps(false);
+            else Toast.makeText(this, R.string.library_save_failed, Toast.LENGTH_LONG).show();
+        });
+        if (appLibraryEnabled && shortcutId == null) addSettingsMenuRow(rows, popup, R.string.library_remove_shortcut, () -> {
             if (LibraryApps.save(this, pkg, false)) reloadApps(false);
             else Toast.makeText(this, R.string.library_save_failed, Toast.LENGTH_LONG).show();
         });

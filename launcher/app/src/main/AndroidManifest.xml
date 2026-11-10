@@ -108,6 +108,19 @@
             </intent-filter>
         </activity>
 
+        <!-- "Add to home screen" from an app (ShortcutManager.requestPinShortcut): Android asks the default
+             Home app to confirm; this accepts it and Home shows the shortcut as a tile. -->
+        <activity
+            android:name=".ConfirmPinActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.content.pm.action.CONFIRM_PIN_SHORTCUT" />
+            </intent-filter>
+        </activity>
+
         <activity
             android:name=".LauncherSettingsActivity"
             android:exported="false"

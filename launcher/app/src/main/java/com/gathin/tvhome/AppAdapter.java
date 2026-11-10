@@ -66,7 +66,7 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     }
 
     static final class Entry {
-        static final int APP = 0, HOME_SETTINGS = 1, CARD = 2, EMPTY = 3;
+        static final int APP = 0, HOME_SETTINGS = 1, CARD = 2, EMPTY = 3, SHORTCUT = 4;
 
         final int kind;
         final String label;
@@ -312,11 +312,30 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                 fresh.add(new Entry(label, component, banner, icon));
             }
         }
+        // Shortcuts an app pinned to Home (a channel, a film, a web page): a tile each, with the shortcut's icon.
+        for (android.content.pm.ShortcutInfo si : PinnedShortcuts.load(ctx)) {
+            String pkg = si.getPackage();
+            CharSequence sl = si.getShortLabel();
+            String label = Cards.cleanLabel(sl != null ? String.valueOf(sl) : pkg, pkg);
+            Drawable icon = null;
+            try {
+                android.content.pm.LauncherApps la = ctx.getSystemService(android.content.pm.LauncherApps.class);
+                icon = la.getShortcutIconDrawable(si, ctx.getResources().getDisplayMetrics().densityDpi);
+            } catch (Exception ignored) { }
+            if (icon == null) {
+                try { icon = pm.getApplicationIcon(pkg); } catch (Exception ignored) { }
+            }
+            Drawable banner = icon != null ? iconBanner(icon) : null;
+            Entry e = new Entry(Entry.SHORTCUT, label, new ComponentName(pkg, PinnedShortcuts.PREFIX + si.getId()),
+                    banner, null, null, 0);
+            fresh.add(e);
+        }
         Collections.sort(fresh, (a, b) -> {
             // The owner's own order first; tiles it does not know (new installs) follow by the rule below.
             int saved = Order.compare(savedRanks, a.component.flattenToShortString(), b.component.flattenToShortString());
             if (saved != 0) return saved;
-            int fa = favourites.indexOf(a.pkg), fb = favourites.indexOf(b.pkg);
+            int fa = a.kind == Entry.SHORTCUT ? -1 : favourites.indexOf(a.pkg);
+            int fb = b.kind == Entry.SHORTCUT ? -1 : favourites.indexOf(b.pkg);
             if (fa >= 0 || fb >= 0) {
                 if (fa < 0) return 1;
                 if (fb < 0) return -1;
@@ -563,6 +582,12 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
             return;
         }
+        if (e.kind == Entry.SHORTCUT) {
+            if (!PinnedShortcuts.start(ctx, e.pkg, PinnedShortcuts.idOf(e.component.getClassName()))) {
+                Toast.makeText(ctx, ctx.getString(R.string.cant_open, e.label), Toast.LENGTH_SHORT).show();
+            }
+            return;
+        }
         Intent i = new Intent(Intent.ACTION_MAIN)
                 .setComponent(e.component)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
@@ -624,7 +649,7 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
      * the owner moved into the dock stays there (#499); else a dock_apps entry.
      */
     private boolean isDocked(Entry e) {
-        if (savedDocked < 0) return favourites.contains(e.pkg);
+        if (savedDocked < 0) return e.kind != Entry.SHORTCUT && favourites.contains(e.pkg);
         Integer rank = savedRanks.get(e.component.flattenToShortString());
         return rank != null && rank < savedDocked;
     }
@@ -692,6 +717,13 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
     String labelAt(int position) {
         return position >= 0 && position < items.size() ? items.get(position).label : "";
+    }
+
+    /** The pinned-shortcut id of the tile at a position, or null when it is an app. */
+    String shortcutIdAt(int position) {
+        if (position < 0 || position >= items.size()) return null;
+        Entry e = items.get(position);
+        return e.kind == Entry.SHORTCUT ? PinnedShortcuts.idOf(e.component.getClassName()) : null;
     }
 
     String packageAt(int position) {
